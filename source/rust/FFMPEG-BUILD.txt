@@ -1,0 +1,29 @@
+AirBridge FFmpeg 9.0.2 shared Windows x64 build
+
+Sources:
+FFmpeg 946fcce07b6dcd0331c8cc609192aeff5e1924f8
+x264 c24e06c2e184345ceb33eb20a15d1024d9fd3497 (GPL-2.0-or-later)
+zlib 1.4 (zlib license)
+Exact URLs/checksums: codec-sources.json
+Build recipes: Build-FFmpeg.ps1 and build-codecs.sh
+Compiler: Microsoft Visual C++ x64; build tools: Git Bash, make, NASM, pkgconf.
+
+FFmpeg is configured GPL-3.0-or-later with --enable-gpl --enable-version3.
+Shared libraries: avcodec, avformat, avutil, swresample, swscale.
+Only x264 and zlib are statically incorporated external libraries.
+Windows D3D11VA and system APIs are used for hardware decoding and threading.
+
+Decoders: H.264, HEVC, AAC (including AAC-LATM), ALAC, PNG, MJPEG.
+Encoders for media regression tests: libx264 (8-bit 4:2:0), AAC.
+Demuxers: H.264, HEVC, MOV/MP4, AAC, image2, PNG pipe, MJPEG.
+Muxers: MP4, MOV, ADTS, Matroska. Protocol: local files.
+Hardware acceleration: H.264 D3D11VA, HEVC D3D11VA.
+No standalone ffmpeg/ffprobe/ffplay executables, network protocols,
+avdevice, avfilter or auto-detected external library integrations are built.
+
+Pristine source archives are unchanged. The recipe removes the unavailable
+POSIX unistd.h include from the installed zconf.h for MSVC compatibility.
+Complete corresponding codec source archives, recipes, generated FFmpeg
+configuration and shipped DLL checksums accompany each binary release in
+AirBridge-VERSION-codec-sources.zip. Build options are recorded exactly in
+BUILD-CONFIG.mak inside that source archive.

@@ -1,0 +1,54 @@
+name: Windows build and checks
+on:
+  push:
+    branches: ['main', 'master']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: windows-2025
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Set up Rust
+        run: |
+          rustup toolchain install 1.99.0 --profile minimal --component clippy
+          rustup default 1.99.0
+      - name: Cache source-built codecs
+        uses: actions/cache@v4
+        with:
+          key: codecs-msvc-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('source/rust/Build-FFmpeg.ps1', 'source/rust/build-codecs.sh', 'source/rust/codec-sources.json') }}
+          path: |
+            source/rust/vendor/ffmpeg-airbridge-9.0.2
+            source/rust/tools/codec-build/ffmpeg.tar.gz
+            source/rust/tools/codec-build/x264.tar.gz
+            source/rust/tools/codec-build/zlib.tar.gz
+      - name: Set up native dependencies
+        run: ./source/rust/Setup-Dependencies.ps1
+      - name: Build
+        run: ./source/build.ps1
+      - name: Unit tests and Clippy
+        working-directory: source/rust
+        run: |
+          $env:FFMPEG_DIR = Join-Path $PWD 'vendor/ffmpeg-airbridge-9.0.2'
+          $env:LIBCLANG_PATH = Join-Path $PWD 'tools/clang/clang/native'
+          $env:PATH = "$env:FFMPEG_DIR/bin;$env:PATH"
+          cargo test --workspace --lib --bins --tests --locked
+          if ($LASTEXITCODE -ne 0) { throw 'Unit tests failed' }
+          cargo clippy --workspace --all-targets --locked -- -D warnings
+          if ($LASTEXITCODE -ne 0) { throw 'Clippy failed' }
+      - name: Protocol and portable package smoke tests
+        run: |
+          py -3 -m pip install cryptography
+          py -3 source/rust/test_protocol.py AirBridge.exe
+          if ($LASTEXITCODE -ne 0) { throw 'Protocol checks failed' }
+          py -3 source/rust/test_packaging.py
+          if ($LASTEXITCODE -ne 0) { throw 'Packaging checks failed' }

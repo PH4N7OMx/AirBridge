@@ -1,0 +1,23 @@
+# Build outputs and downloaded development dependencies
+/AirBridge.exe
+/*.dll
+/dist/
+source/rust/target/
+source/rust/tools/
+source/rust/vendor/
+source/rust/build-manifest.sha256
+source/rust/validation/current/
+source/rust/validation/history/
+# Local runtime data: never publish device identities or captures
+/logs/
+/recordings/
+**/identity.key
+**/*identity.key
+**/settings.ini
+**/window-state.ini
+*.tmp
+__pycache__/
+*.pyc
+.vs/
+.idea/
+.DS_Store

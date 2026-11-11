@@ -1,0 +1,29 @@
+{
+  "ffmpeg": {
+    "url": "https://codeload.github.com/FFmpeg/FFmpeg/tar.gz/946fcce07b6dcd0331c8cc609192aeff5e1924f8",
+    "sha256": "0aa2b1de2a5698b20a23e93d539a9a8e82ca0117496c5bdf05d198805f42bb3b",
+    "revision": "946fcce07b6dcd0331c8cc609192aeff5e1924f8"
+  },
+  "x264": {
+    "url": "https://codeload.github.com/mirror/x264/tar.gz/c24e06c2e184345ceb33eb20a15d1024d9fd3497",
+    "sha256": "090d730e867fc63631782a1287974635d1237d0fa7c6fd1d09fd543620a56689",
+    "revision": "c24e06c2e184345ceb33eb20a15d1024d9fd3497"
+  },
+  "zlib": {
+    "url": "https://zlib.net/zlib-1.4.tar.gz",
+    "sha256": "02dd159783677a749c04adbdd02b55b8a2bcc7e054f51b76b549199a916ad584",
+    "version": "1.4"
+  },
+  "make": {
+    "url": "https://repo.msys2.org/msys/x86_64/make-4.4.1-2-x86_64.pkg.tar.zst",
+    "sha256": "2408af61717dae87b00c855b132769a125c708907fc94a46bb16dae076113e5c"
+  },
+  "nasm": {
+    "url": "https://www.nasm.us/pub/nasm/releasebuilds/2.16.03/win64/nasm-2.16.03-win64.zip",
+    "sha256": "3ee4782247bcb874378d02f7eab4e294a84d3d15f3f6ee2de2f47a46aa7226e6"
+  },
+  "pkgconf": {
+    "url": "https://repo.msys2.org/msys/x86_64/pkgconf-2.3.0-1-x86_64.pkg.tar.zst",
+    "sha256": "9ca6331af1e61b9e5d7c3d08503841087b664db570cf9cc9b07890cc39757301"
+  }
+}

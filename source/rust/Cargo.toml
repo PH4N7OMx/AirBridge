@@ -1,0 +1,28 @@
+[package]
+name = "airbridge"
+version = "0.1.0"
+edition = "2024"
+license = "GPL-3.0-or-later"
+description = "Native Windows AirPlay receiver in Rust"
+
+[workspace]
+members = ["crates/rust-airplay"]
+resolver = "3"
+
+[[bin]]
+name = "AirBridge"
+path = "src/main.rs"
+
+[dependencies]
+rust-airplay = { path = "crates/rust-airplay" }
+tokio = { version = "1", features = ["rt-multi-thread", "sync", "time", "net", "macros"] }
+ffmpeg-next = { version = "9", default-features = false, features = ["codec", "format", "software-scaling", "software-resampling"] }
+cpal = "0.17"
+log = { version = "0.4", features = ["std"] }
+getrandom = "0.2"
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Globalization", "Win32_Storage_FileSystem", "Win32_Graphics_Gdi", "Win32_Graphics_GdiPlus", "Win32_Graphics_Dwm", "Win32_System_Registry", "Win32_System_LibraryLoader", "Win32_System_Threading", "Win32_System_JobObjects", "Win32_System_Diagnostics_ToolHelp", "Win32_Security", "Win32_UI_Controls", "Win32_UI_WindowsAndMessaging", "Win32_UI_Shell", "Win32_UI_Input_KeyboardAndMouse", "Win32_System_SystemInformation"] }
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true

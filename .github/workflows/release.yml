@@ -1,0 +1,139 @@
+name: Build release draft
+
+on:
+  push:
+    tags:
+      - 'v[0-9]*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing version tag, for example v0.1.0'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: windows-2025
+    timeout-minutes: 60
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Validate tag input
+        run: |
+          if ($env:RELEASE_TAG -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+$') { throw 'Expected vMAJOR.MINOR.PATCH' }
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ inputs.tag || github.ref_name }}
+          fetch-depth: 0
+      - name: Verify version matches tag
+        run: |
+          $match = Select-String -LiteralPath source/rust/Cargo.toml -Pattern '^version = "([0-9]+\.[0-9]+\.[0-9]+)"$' | Select-Object -First 1
+          if (-not $match -or "v$($match.Matches[0].Groups[1].Value)" -ne $env:RELEASE_TAG) { throw 'Tag and Cargo package version differ' }
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Set up Rust
+        run: |
+          rustup toolchain install 1.99.0 --profile minimal --component clippy
+          if ($LASTEXITCODE -ne 0) { throw 'Rust setup failed' }
+          rustup default 1.99.0
+          if ($LASTEXITCODE -ne 0) { throw 'Rust selection failed' }
+      - name: Cache source-built codecs
+        uses: actions/cache@v4
+        with:
+          key: codecs-msvc-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('source/rust/Build-FFmpeg.ps1', 'source/rust/build-codecs.sh', 'source/rust/codec-sources.json') }}
+          path: |
+            source/rust/vendor/ffmpeg-airbridge-9.0.2
+            source/rust/tools/codec-build/ffmpeg.tar.gz
+            source/rust/tools/codec-build/x264.tar.gz
+            source/rust/tools/codec-build/zlib.tar.gz
+      - name: Set up native dependencies
+        run: ./source/rust/Setup-Dependencies.ps1
+      - name: Build release with neutral source paths
+        run: ./source/build.ps1
+      - name: Unit tests and Clippy
+        working-directory: source/rust
+        run: |
+          $env:FFMPEG_DIR = Join-Path $PWD 'vendor/ffmpeg-airbridge-9.0.2'
+          $env:LIBCLANG_PATH = Join-Path $PWD 'tools/clang/clang/native'
+          $env:PATH = "$env:FFMPEG_DIR/bin;$env:PATH"
+          cargo test --workspace --lib --bins --tests --locked
+          if ($LASTEXITCODE -ne 0) { throw 'Unit tests failed' }
+          cargo clippy --workspace --all-targets --locked -- -D warnings
+          if ($LASTEXITCODE -ne 0) { throw 'Clippy failed' }
+      - name: Protocol and portable smoke tests
+        run: |
+          py -3 -m pip install cryptography
+          if ($LASTEXITCODE -ne 0) { throw 'Python dependency setup failed' }
+          py -3 source/rust/test_protocol.py AirBridge.exe
+          if ($LASTEXITCODE -ne 0) { throw 'Protocol checks failed' }
+          py -3 source/rust/test_packaging.py
+          if ($LASTEXITCODE -ne 0) { throw 'Portable checks failed' }
+      - name: Package installer, portable app and source
+        run: ./scripts/Prepare-Release.ps1 -Installer
+      - name: Validate archives and install, launch, uninstall
+        run: |
+          py -3 source/rust/test_release.py dist
+          if ($LASTEXITCODE -ne 0) { throw 'Release package validation failed' }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-packages
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            dist/AirBridge-*-setup.exe
+            dist/AirBridge-*-portable.zip
+            dist/AirBridge-*-source.zip
+            dist/AirBridge-*-codec-sources.zip
+            dist/SHA256SUMS.txt
+  draft:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ inputs.tag || github.ref_name }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-packages
+          path: dist
+      - name: Create unpublished preview release
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/release-notes.md" <<'NOTES'
+          Mirror your iPhone or iPad screen and audio to a Windows PC over your local network.
+
+          - **Setup EXE:** installs AirBridge and creates a Start menu shortcut.
+          - **Portable ZIP:** extract the entire archive and run AirBridge.exe.
+          - **Source ZIP:** source code for developers.
+          - **Codec sources ZIP:** matching FFmpeg, x264 and zlib source archives and build recipes.
+
+          Requires Windows 10 1809+ or Windows 11 x64. On your iPhone, open Control Center → Screen Mirroring → AirBridge.
+
+          This is a preview. Protected video may not be displayed; compatibility and playback quality depend on your device and network.
+          NOTES
+          gh release create "$RELEASE_TAG" dist/* \
+            --verify-tag --draft --prerelease \
+            --title "AirBridge $RELEASE_TAG — Windows preview" \
+            --notes-file "$RUNNER_TEMP/release-notes.md"
+      - name: Publication reminder
+        shell: bash
+        run: |
+          echo 'Draft created with matching source archives. Windows installer/portable smoke checks passed; review real-device playback status before publishing this preview.' >> "$GITHUB_STEP_SUMMARY"
